@@ -1,0 +1,724 @@
+index.html<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日语听力练习 | 日语学习助手</title>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- 配置Tailwind自定义颜色和字体 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6', // 蓝色作为主色调
+                        secondary: '#F97316', // 橙色作为辅助色
+                        success: '#10B981', // 成功色
+                        error: '#EF4444',   // 错误色
+                        male: '#2563EB',    // 男性标识色
+                        female: '#DB2777',  // 女性标识色
+                        neutral: {
+                            100: '#F3F4F6',
+                            200: '#E5E7EB',
+                            700: '#374151',
+                            800: '#1F2937',
+                            900: '#111827'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        japanese: ['"Noto Sans JP"', 'sans-serif']
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <!-- 引入Google字体 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- 自定义工具类 -->
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .card-hover {
+                @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+            }
+            .correct-char {
+                @apply bg-success/20 text-success;
+            }
+            .incorrect-char {
+                @apply bg-error/20 text-error;
+            }
+            .missing-char {
+                @apply bg-error/10 border-b-2 border-error;
+            }
+            .extra-char {
+                @apply bg-orange-100 text-orange-600;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans text-neutral-800 min-h-screen flex flex-col">
+    <!-- 导航栏 -->
+    <header class="bg-white shadow-sm sticky top-0 z-50 transition-all duration-300" id="navbar">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-language text-primary text-2xl"></i>
+                <h1 class="text-xl md:text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">日语听力练习</h1>
+            </div>
+            <nav class="hidden md:flex items-center space-x-6">
+                <a href="#" class="text-primary font-medium hover:text-primary/80 transition-colors">首页</a>
+                <a href="#" class="text-neutral-700 hover:text-primary transition-colors">练习历史</a>
+                <a href="#" class="text-neutral-700 hover:text-primary transition-colors">学习资源</a>
+                <a href="#" class="text-neutral-700 hover:text-primary transition-colors">关于</a>
+            </nav>
+            <button class="md:hidden text-neutral-700 focus:outline-none" id="mobile-menu-button">
+                <i class="fa fa-bars text-xl"></i>
+            </button>
+        </div>
+        <!-- 移动端菜单 -->
+        <div class="md:hidden hidden bg-white shadow-md absolute w-full" id="mobile-menu">
+            <div class="container mx-auto px-4 py-3 flex flex-col space-y-3">
+                <a href="#" class="text-primary font-medium py-2 hover:bg-gray-50 px-2 rounded">首页</a>
+                <a href="#" class="text-neutral-700 py-2 hover:bg-gray-50 px-2 rounded">练习历史</a>
+                <a href="#" class="text-neutral-700 py-2 hover:bg-gray-50 px-2 rounded">学习资源</a>
+                <a href="#" class="text-neutral-700 py-2 hover:bg-gray-50 px-2 rounded">关于</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="flex-grow container mx-auto px-4 py-8">
+        <!-- 页面介绍 -->
+        <section class="mb-10 text-center max-w-3xl mx-auto">
+            <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold text-neutral-800 mb-4 text-shadow">提升你的日语听力</h2>
+            <p class="text-neutral-700 text-lg mb-6">听日语句子，尝试输入你听到的内容，然后检查答案。系统会清晰对比错误部分和正确答案。</p>
+            <div class="w-20 h-1 bg-gradient-to-r from-primary to-secondary mx-auto rounded-full"></div>
+        </section>
+
+        <!-- 文本输入区域 -->
+        <section class="mb-12 bg-white rounded-xl shadow-md p-6 md:p-8 max-w-4xl mx-auto transform transition-all duration-500 hover:shadow-lg">
+            <h3 class="text-xl font-semibold mb-6 flex items-center">
+                <i class="fa fa-pencil-square-o text-primary mr-2"></i>输入文本内容
+            </h3>
+            
+            <div class="space-y-6">
+                <!-- 混合输入区域 -->
+                <div>
+                    <label for="mixed-text" class="block text-sm font-medium text-neutral-700 mb-2">日语和对应的中文翻译（交替输入）</label>
+                    <textarea 
+                        id="mixed-text" 
+                        rows="10" 
+                        class="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none text-lg"
+                        placeholder="请交替输入日语和中文，例如：
+電話で女の学生と男の学生が話しています。男の学生は明日何をしなければなりませんか。
+在电话里女学生和男学生正在交谈。男学生明天必须做什么？
+女：もしもし、伊藤君、私田中だけど。明日のサークルのミーティングが急用で出られなくなっちゃったから代わりに仕切ってくれない？
+女：喂，伊藤君，我是田中。明天社团的会议因为有急事我去不了了，你能代替我主持吗？"></textarea>
+                    <p class="mt-1 text-sm text-neutral-500"><i class="fa fa-info-circle mr-1"></i> 请按照"日语→中文→日语→中文"的顺序交替输入，系统会按句号自动断句，并识别性别标识</p>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-4 justify-end pt-4">
+                    <button 
+                        id="clear-button" 
+                        class="px-6 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-100 transition-all flex items-center justify-center"
+                    >
+                        <i class="fa fa-eraser mr-2"></i>清空
+                    </button>
+                    <button 
+                        id="process-button" 
+                        class="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg shadow-sm hover:shadow transition-all flex items-center justify-center font-medium"
+                    >
+                        <i class="fa fa-magic mr-2"></i>处理文本
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 结果显示区域 -->
+        <section id="results-section" class="max-w-4xl mx-auto hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold flex items-center">
+                    <i class="fa fa-list-alt text-primary mr-2"></i>练习内容
+                </h3>
+                <div class="text-sm text-neutral-600">
+                    <span id="sentence-count">0</span> 组句子
+                </div>
+            </div>
+            
+            <!-- 句子列表 -->
+            <div id="sentences-container" class="space-y-8">
+                <!-- 句子卡片会通过JavaScript动态生成 -->
+            </div>
+        </section>
+
+        <!-- 空状态提示 -->
+        <section id="empty-state" class="max-w-4xl mx-auto py-16 text-center hidden">
+            <div class="bg-white rounded-xl p-8 shadow-sm">
+                <i class="fa fa-file-text-o text-5xl text-neutral-300 mb-4"></i>
+                <h3 class="text-xl font-medium text-neutral-700 mb-2">还没有处理的文本</h3>
+                <p class="text-neutral-500 mb-6">请在上方交替输入日语和中文内容，然后点击"处理文本"按钮开始练习</p>
+                <button 
+                    id="empty-state-process-button" 
+                    class="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg shadow-sm hover:shadow transition-all"
+                >
+                    开始练习
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-neutral-800 text-white py-8">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <div class="flex items-center justify-center md:justify-start">
+                        <i class="fa fa-language text-primary text-xl mr-2"></i>
+                        <span class="font-bold">日语听力练习</span>
+                    </div>
+                    <p class="text-neutral-400 text-sm mt-2 text-center md:text-left">提升你的日语听力能力</p>
+                </div>
+                
+                <div class="flex space-x-6">
+                    <a href="#" class="text-neutral-400 hover:text-white transition-colors">
+                        <i class="fa fa-github text-xl"></i>
+                    </a>
+                    <a href="#" class="text-neutral-400 hover:text-white transition-colors">
+                        <i class="fa fa-twitter text-xl"></i>
+                    </a>
+                    <a href="#" class="text-neutral-400 hover:text-white transition-colors">
+                        <i class="fa fa-envelope text-xl"></i>
+                    </a>
+                </div>
+            </div>
+            
+            <div class="border-t border-neutral-700 mt-6 pt-6 text-center text-neutral-500 text-sm">
+                &copy; 2023 日语听力练习 | 一个帮助你提升日语听力的工具
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // DOM元素
+        const mixedTextarea = document.getElementById('mixed-text');
+        const processButton = document.getElementById('process-button');
+        const clearButton = document.getElementById('clear-button');
+        const resultsSection = document.getElementById('results-section');
+        const sentencesContainer = document.getElementById('sentences-container');
+        const emptyState = document.getElementById('empty-state');
+        const emptyStateProcessButton = document.getElementById('empty-state-process-button');
+        const sentenceCountElement = document.getElementById('sentence-count');
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const navbar = document.getElementById('navbar');
+
+        // 初始化页面状态
+        updateEmptyState();
+
+        // 监听滚动事件，改变导航栏样式
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 10) {
+                navbar.classList.add('py-2', 'shadow');
+                navbar.classList.remove('py-4', 'shadow-sm');
+            } else {
+                navbar.classList.add('py-4', 'shadow-sm');
+                navbar.classList.remove('py-2', 'shadow');
+            }
+        });
+
+        // 移动端菜单切换
+        mobileMenuButton.addEventListener('click', () => {
+            mobileMenu.classList.toggle('hidden');
+        });
+
+        // 处理文本按钮点击事件
+        processButton.addEventListener('click', processText);
+        emptyStateProcessButton.addEventListener('click', () => {
+            mixedTextarea.focus();
+        });
+
+        // 清空按钮点击事件
+        clearButton.addEventListener('click', () => {
+            mixedTextarea.value = '';
+            mixedTextarea.focus();
+            resultsSection.classList.add('hidden');
+            updateEmptyState();
+        });
+
+        // 判断文本是否包含日语字符
+        function containsJapanese(text) {
+            // 匹配日语平假名、片假名、汉字
+            const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/;
+            return japaneseRegex.test(text);
+        }
+
+        // 按句号分割句子
+        function splitByPeriod(text) {
+            // 使用正则表达式按句号分割，但保留句号
+            const sentences = text.split(/([。．！？？！])/g)
+                .reduce((acc, curr, index, array) => {
+                    if (index % 2 === 0 && curr.trim() !== '') {
+                        // 当前是文本部分，下一个应该是标点
+                        const punctuation = array[index + 1] || '';
+                        acc.push(curr.trim() + punctuation);
+                    }
+                    return acc;
+                }, []);
+            
+            return sentences;
+        }
+
+        // 提取并去除开头的性别标识（男:或女:）
+        function extractAndRemoveGenderPrefix(text) {
+            // 匹配开头的"男："、"女："或日文的"男："、"女："，支持全角和半角冒号
+            const genderMatch = text.match(/^([男女男女])([:：])/);
+            
+            if (genderMatch) {
+                // 提取性别并去除前缀
+                const gender = genderMatch[1];
+                const processedText = text.replace(/^[男女男女][:：]/, '').trim();
+                return {
+                    text: processedText,
+                    gender: gender === '男' || gender === '男' ? 'male' : 'female'
+                };
+            }
+            
+            // 没有性别标识
+            return {
+                text: text.trim(),
+                gender: null
+            };
+        }
+
+        // 处理文本函数
+        function processText() {
+            const mixedText = mixedTextarea.value.trim();
+            
+            // 验证输入
+            if (!mixedText) {
+                showNotification('请输入文本内容', 'warning');
+                mixedTextarea.focus();
+                return;
+            }
+            
+            // 按行分割文本
+            const lines = mixedText.split('\n')
+                .map(line => line.trim())
+                .filter(line => line !== '');
+            
+            if (lines.length === 0) {
+                showNotification('未检测到有效内容', 'warning');
+                return;
+            }
+            
+            // 检查行数是否为偶数（日语+中文成对出现）
+            if (lines.length % 2 !== 0) {
+                showNotification('文本行数必须为偶数，请确保日语和中文成对输入', 'error');
+                return;
+            }
+            
+            // 分离日语和中文句子，并按句号断句
+            const japaneseSentences = [];
+            const chineseSentences = [];
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                // 按句号分割句子
+                const sentences = splitByPeriod(line);
+                
+                if (i % 2 === 0) {
+                    // 偶数行应该是日语，处理每个句子
+                    sentences.forEach(sentence => {
+                        if (sentence.trim() !== '') {
+                            // 提取并去除性别前缀
+                            const { text: processedText, gender } = extractAndRemoveGenderPrefix(sentence);
+                            japaneseSentences.push({
+                                text: processedText,
+                                gender: gender
+                            });
+                        }
+                    });
+                } else {
+                    // 奇数行应该是中文，处理每个句子
+                    sentences.forEach(sentence => {
+                        if (sentence.trim() !== '') {
+                            // 提取并去除性别前缀
+                            const { text: processedText } = extractAndRemoveGenderPrefix(sentence);
+                            chineseSentences.push(processedText);
+                        }
+                    });
+                }
+            }
+            
+            // 验证日语和中文句子数量是否一致
+            if (japaneseSentences.length !== chineseSentences.length) {
+                showNotification(`日语句子数量（${japaneseSentences.length}）与中文句子数量（${chineseSentences.length}）不一致，请检查输入`, 'error');
+                return;
+            }
+            
+            // 简单验证日语句子确实包含日语字符
+            for (let i = 0; i < japaneseSentences.length; i++) {
+                if (!containsJapanese(japaneseSentences[i].text)) {
+                    showNotification(`第 ${i+1} 组日语句子似乎不包含日语字符，请检查`, 'warning');
+                    // 仍然继续处理，但给出警告
+                }
+            }
+            
+            // 显示结果区域
+            resultsSection.classList.remove('hidden');
+            emptyState.classList.add('hidden');
+            
+            // 更新句子计数
+            sentenceCountElement.textContent = japaneseSentences.length;
+            
+            // 清空容器并添加新句子
+            sentencesContainer.innerHTML = '';
+            
+            // 生成句子卡片
+            japaneseSentences.forEach((japaneseSentence, index) => {
+                const chineseSentence = chineseSentences[index];
+                const { text: japaneseText, gender } = japaneseSentence;
+                
+                // 确定性别显示样式
+                let genderBadge = '';
+                if (gender === 'male') {
+                    genderBadge = '<span class="bg-male/10 text-male text-xs font-medium px-2 py-0.5 rounded ml-2">男性</span>';
+                } else if (gender === 'female') {
+                    genderBadge = '<span class="bg-female/10 text-female text-xs font-medium px-2 py-0.5 rounded ml-2">女性</span>';
+                }
+                
+                // 创建句子卡片
+                const sentenceCard = document.createElement('div');
+                sentenceCard.className = 'bg-white rounded-xl shadow-sm p-6 card-hover border border-neutral-100';
+                sentenceCard.innerHTML = `
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-center">
+                            <span class="bg-primary/10 text-primary text-sm font-medium px-3 py-1 rounded-full">句子 ${index + 1}</span>
+                            ${genderBadge}
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="play-button text-neutral-500 hover:text-secondary transition-colors p-2 rounded-full hover:bg-secondary/10 focus:outline-none" 
+                                    data-text="${japaneseText}"
+                                    data-gender="${gender || ''}">
+                                <i class="fa fa-volume-up text-xl"></i>
+                            </button>
+                            <button class="toggle-original-button text-neutral-500 hover:text-primary transition-colors p-2 rounded-full hover:bg-primary/10 focus:outline-none"
+                                    data-index="${index}">
+                                <i class="fa fa-eye text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 用户输入区域 -->
+                    <div class="mb-4">
+                        <h4 class="text-sm font-medium text-neutral-500 mb-2">请输入你听到的日语</h4>
+                        <textarea 
+                            class="user-input w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none font-japanese text-lg"
+                            rows="2"
+                            placeholder="在这里输入你听到的日语..."></textarea>
+                        <div class="flex justify-end mt-2">
+                            <button class="check-button px-4 py-1.5 bg-primary hover:bg-primary/90 text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center"
+                                    data-index="${index}">
+                                <i class="fa fa-check mr-1"></i>检查答案
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 检查结果区域 -->
+                    <div class="check-result hidden mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium result-status"></span>
+                            <span class="text-xs text-neutral-500 accuracy"></span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <span class="text-xs font-medium text-neutral-500">你的输入：</span>
+                                <div class="user-input-display font-japanese text-sm p-2 bg-neutral-50 rounded"></div>
+                            </div>
+                            <div>
+                                <span class="text-xs font-medium text-neutral-500">正确答案：</span>
+                                <div class="correct-answer-display font-japanese text-sm p-2 bg-neutral-50 rounded"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 日语原文（默认隐藏） -->
+                    <div class="japanese-original hidden mb-4">
+                        <h4 class="text-sm font-medium text-neutral-500 mb-1">日语原文</h4>
+                        <p class="font-japanese text-lg text-neutral-800">${japaneseText}</p>
+                    </div>
+                    
+                    <!-- 中文翻译 -->
+                    <div>
+                        <h4 class="text-sm font-medium text-neutral-500 mb-1">中文翻译</h4>
+                        <p class="text-neutral-700">${chineseSentence}</p>
+                    </div>
+                `;
+                
+                sentencesContainer.appendChild(sentenceCard);
+                
+                // 添加朗读按钮事件
+                const playButton = sentenceCard.querySelector('.play-button');
+                playButton.addEventListener('click', function() {
+                    const textToSpeak = this.getAttribute('data-text');
+                    const gender = this.getAttribute('data-gender');
+                    speakJapanese(textToSpeak, gender);
+                    
+                    // 按钮动画效果
+                    this.classList.add('text-secondary');
+                    setTimeout(() => {
+                        this.classList.remove('text-secondary');
+                    }, 500);
+                });
+                
+                // 添加显示/隐藏原文按钮事件
+                const toggleButton = sentenceCard.querySelector('.toggle-original-button');
+                const originalText = sentenceCard.querySelector('.japanese-original');
+                
+                toggleButton.addEventListener('click', function() {
+                    originalText.classList.toggle('hidden');
+                    
+                    // 切换图标
+                    const icon = this.querySelector('i');
+                    if (originalText.classList.contains('hidden')) {
+                        icon.classList.remove('fa-eye-slash');
+                        icon.classList.add('fa-eye');
+                    } else {
+                        icon.classList.remove('fa-eye');
+                        icon.classList.add('fa-eye-slash');
+                    }
+                });
+                
+                // 添加检查按钮事件
+                const checkButton = sentenceCard.querySelector('.check-button');
+                const userInput = sentenceCard.querySelector('.user-input');
+                const checkResult = sentenceCard.querySelector('.check-result');
+                const resultStatus = checkResult.querySelector('.result-status');
+                const accuracyDisplay = checkResult.querySelector('.accuracy');
+                const userInputDisplay = checkResult.querySelector('.user-input-display');
+                const correctAnswerDisplay = checkResult.querySelector('.correct-answer-display');
+                
+                checkButton.addEventListener('click', function() {
+                    const userText = userInput.value.trim();
+                    if (!userText) {
+                        showNotification('请先输入内容再检查', 'warning');
+                        return;
+                    }
+                    
+                    // 比较用户输入和原文
+                    const comparisonResult = compareTexts(userText, japaneseText);
+                    
+                    // 显示结果
+                    checkResult.classList.remove('hidden');
+                    
+                    // 更新状态和准确率
+                    resultStatus.innerHTML = comparisonResult.correct ? 
+                        '<span class="text-success"><i class="fa fa-check-circle mr-1"></i>回答正确</span>' : 
+                        '<span class="text-error"><i class="fa fa-times-circle mr-1"></i>有错误</span>';
+                    
+                    accuracyDisplay.textContent = `准确率: ${comparisonResult.accuracy.toFixed(1)}%`;
+                    
+                    // 显示带标记的用户输入和正确答案
+                    userInputDisplay.innerHTML = comparisonResult.userHtml;
+                    correctAnswerDisplay.innerHTML = comparisonResult.correctHtml;
+                });
+            });
+            
+            // 滚动到结果区域
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            showNotification(`已成功处理 ${japaneseSentences.length} 组句子`, 'success');
+        }
+
+        // 比较用户输入和原文，生成带标记的HTML
+        function compareTexts(userText, originalText) {
+            // 使用更智能的比较算法，考虑插入、删除和替换
+            let userHtml = '';
+            let correctHtml = '';
+            let correctCount = 0;
+            let maxLength = Math.max(userText.length, originalText.length);
+            
+            // 简单的字符级比较，区分不同类型的错误
+            for (let i = 0; i < maxLength; i++) {
+                const userChar = i < userText.length ? userText[i] : '';
+                const originalChar = i < originalText.length ? originalText[i] : '';
+                
+                if (userChar === originalChar && userChar !== '') {
+                    // 字符正确
+                    userHtml += `<span class="correct-char">${userChar}</span>`;
+                    correctHtml += `<span class="correct-char">${originalChar}</span>`;
+                    correctCount++;
+                } else {
+                    // 字符错误
+                    if (userChar && originalChar) {
+                        // 字符不匹配（替换错误）
+                        userHtml += `<span class="incorrect-char">${userChar}</span>`;
+                        correctHtml += `<span class="incorrect-char">${originalChar}</span>`;
+                    } else if (userChar && !originalChar) {
+                        // 用户输入了额外的字符（插入错误）
+                        userHtml += `<span class="extra-char">${userChar}</span>`;
+                        // 正确答案中此处无字符，不显示
+                    } else if (!userChar && originalChar) {
+                        // 用户遗漏了字符（删除错误）
+                        userHtml += `<span class="missing-char"> </span>`;
+                        correctHtml += `<span class="missing-char">${originalChar}</span>`;
+                    }
+                }
+            }
+            
+            const accuracy = originalText.length > 0 ? (correctCount / originalText.length) * 100 : 0;
+            const correct = accuracy === 100;
+            
+            return {
+                userHtml: userHtml,
+                correctHtml: correctHtml,
+                accuracy: accuracy,
+                correct: correct
+            };
+        }
+
+        // 日语朗读函数 - 支持性别区分
+        function speakJapanese(text, gender) {
+            try {
+                // 停止任何正在进行的朗读
+                window.speechSynthesis.cancel();
+                
+                // 使用Web Speech API
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'ja-JP';
+                
+                // 尝试找到合适的语音
+                const voices = window.speechSynthesis.getVoices();
+                let selectedVoice = null;
+                
+                // 筛选日语语音
+                const japaneseVoices = voices.filter(voice => 
+                    voice.lang.includes('ja') || voice.name.includes('Japanese')
+                );
+                
+                if (japaneseVoices.length > 0) {
+                    // 根据性别选择语音
+                    if (gender === 'male') {
+                        // 优先选择男性语音
+                        selectedVoice = japaneseVoices.find(voice => 
+                            voice.name.toLowerCase().includes('male') || 
+                            voice.name.toLowerCase().includes('man')
+                        );
+                    } else if (gender === 'female') {
+                        // 优先选择女性语音
+                        selectedVoice = japaneseVoices.find(voice => 
+                            voice.name.toLowerCase().includes('female') || 
+                            voice.name.toLowerCase().includes('woman') ||
+                            voice.name.toLowerCase().includes('female')
+                        );
+                    }
+                    
+                    // 如果没有找到对应性别的语音，使用第一个日语语音
+                    if (!selectedVoice) {
+                        selectedVoice = japaneseVoices[0];
+                    }
+                    
+                    utterance.voice = selectedVoice;
+                }
+                
+                // 调整语速
+                utterance.rate = 0.9; // 稍微放慢速度，方便学习
+                
+                window.speechSynthesis.speak(utterance);
+            } catch (error) {
+                console.error('语音合成失败:', error);
+                showNotification('语音合成功能不可用，请检查浏览器设置', 'error');
+            }
+        }
+
+        // 更新空状态显示
+        function updateEmptyState() {
+            if (mixedTextarea.value.trim() === '' && resultsSection.classList.contains('hidden')) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+            }
+        }
+
+        // 显示通知函数
+        function showNotification(message, type = 'info') {
+            // 创建通知元素
+            const notification = document.createElement('div');
+            
+            // 设置样式和图标
+            let bgColor, icon;
+            switch (type) {
+                case 'success':
+                    bgColor = 'bg-green-500';
+                    icon = 'fa-check-circle';
+                    break;
+                case 'warning':
+                    bgColor = 'bg-yellow-500';
+                    icon = 'fa-exclamation-triangle';
+                    break;
+                case 'error':
+                    bgColor = 'bg-red-500';
+                    icon = 'fa-times-circle';
+                    break;
+                default:
+                    bgColor = 'bg-primary';
+                    icon = 'fa-info-circle';
+            }
+            
+            notification.className = `fixed bottom-4 right-4 ${bgColor} text-white px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-10 opacity-0 z-50 flex items-center`;
+            notification.innerHTML = `
+                <i class="fa ${icon} mr-2"></i>
+                <span>${message}</span>
+            `;
+            
+            // 添加到页面
+            document.body.appendChild(notification);
+            
+            // 显示动画
+            setTimeout(() => {
+                notification.classList.remove('translate-y-10', 'opacity-0');
+            }, 10);
+            
+            // 自动消失
+            setTimeout(() => {
+                notification.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // 监听文本输入，更新空状态
+        mixedTextarea.addEventListener('input', updateEmptyState);
+
+        // 初始化语音合成
+        window.speechSynthesis.onvoiceschanged = function() {
+            // 语音列表加载完成
+            console.log('语音合成已准备就绪');
+        };
+
+        // 示例文本填充（方便用户测试）
+        mixedTextarea.value = `電話で女の学生と男の学生が話しています。男の学生は明日何をしなければなりませんか。
+在电话里女学生和男学生正在交谈。男学生明天必须做什么？
+女：もしもし、伊藤君、私田中だけど。明日のサークルのミーティングが急用で出られなくなっちゃったから代わりに仕切ってくれない？
+女：喂，伊藤君，我是田中。明天社团的会议因为有急事我去不了了，你能代替我主持吗？
+男：はい、わかりました。何か特別に準備することはありますか？
+男：好的，我知道了。有什么需要特别准备的吗？
+女：資料は事前にメールで送っておきますから、それを印刷して持ってきてくれると助かります。
+女：资料我会提前用邮件发过去，如果你能打印出来带过去就太好了。`;
+    </script>
+</body>
+</html>
+    
