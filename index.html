@@ -20,6 +20,8 @@
                         success: '#10B981',
                         error: '#EF4444',
                         accent: '#8B5CF6',
+                        particle: '#D97706', // 助词按钮主色（深琥珀色）
+                        particleLight: '#F59E0B', // 助词按钮高亮色
                         male: '#2563EB',
                         female: '#DB2777',
                         neutral: {
@@ -65,9 +67,6 @@
             }
             .extra-char {
                 @apply bg-orange-100 text-orange-600;
-            }
-            .error-play-button-active {
-                @apply bg-accent text-white;
             }
         }
     </style>
@@ -215,6 +214,9 @@
 
     <!-- JavaScript -->
     <script>
+        // 日语常用助词列表
+        const japaneseParticles = ['は', 'が', 'を', 'に', 'で', 'と', 'から', 'まで', 'へ', 'の', 'より', 'や', 'か', 'も', 'ね', 'よ', 'って', 'な', 'だ', 'です', 'ます'];
+        
         // DOM元素
         const mixedTextarea = document.getElementById('mixed-text');
         const processButton = document.getElementById('process-button');
@@ -302,7 +304,189 @@
             };
         }
 
-        // 处理文本函数 - 完整实现
+        // 查找从指定位置开始的下一个助词位置
+        function findNextParticlePosition(text, startPos) {
+            // 从起始位置开始检查每个字符
+            for (let i = startPos; i < text.length; i++) {
+                // 检查当前字符是否是助词
+                if (japaneseParticles.includes(text[i])) {
+                    return i;
+                }
+                
+                // 检查是否是双字符助词（如"って"）
+                if (i < text.length - 1) {
+                    const twoChars = text[i] + text[i + 1];
+                    if (japaneseParticles.includes(twoChars)) {
+                        return i + 1; // 返回双字符助词的结束位置
+                    }
+                }
+            }
+            
+            // 如果没有找到助词，返回文本末尾
+            return text.length - 1;
+        }
+
+        // 比较文本并记录错误位置
+        function compareTexts(userText, originalText) {
+            let userHtml = '';
+            let correctHtml = '';
+            let correctCount = 0;
+            let errorPositions = []; // 记录错误位置
+            const maxLength = Math.max(userText.length, originalText.length);
+            
+            for (let i = 0; i < maxLength; i++) {
+                const userChar = i < userText.length ? userText[i] : '';
+                const originalChar = i < originalText.length ? originalText[i] : '';
+                
+                if (userChar === originalChar && userChar !== '') {
+                    // 字符正确
+                    userHtml += `<span class="correct-char">${userChar}</span>`;
+                    correctHtml += `<span class="correct-char">${originalChar}</span>`;
+                    correctCount++;
+                } else {
+                    // 字符错误，记录位置
+                    errorPositions.push(i);
+                    
+                    if (userChar && originalChar) {
+                        // 替换错误
+                        userHtml += `<span class="incorrect-char">${userChar}</span>`;
+                        correctHtml += `<span class="incorrect-char">${originalChar}</span>`;
+                    } else if (userChar && !originalChar) {
+                        // 插入错误
+                        userHtml += `<span class="extra-char">${userChar}</span>`;
+                    } else if (!userChar && originalChar) {
+                        // 删除错误
+                        userHtml += `<span class="missing-char"> </span>`;
+                        correctHtml += `<span class="missing-char">${originalChar}</span>`;
+                    }
+                }
+            }
+            
+            const accuracy = originalText.length > 0 ? (correctCount / originalText.length) * 100 : 0;
+            const correct = accuracy === 100;
+            
+            return {
+                userHtml: userHtml,
+                correctHtml: correctHtml,
+                accuracy: accuracy,
+                correct: correct,
+                errorPositions: errorPositions
+            };
+        }
+
+        // 更新对比结果并返回比较结果
+        function updateComparisonResult(card, idx) {
+            const userInput = card.querySelector('.user-input');
+            const checkResult = card.querySelector('.check-result');
+            const resultStatus = checkResult.querySelector('.result-status');
+            const accuracyDisplay = checkResult.querySelector('.accuracy');
+            const userInputDisplay = checkResult.querySelector('.user-input-display');
+            const correctAnswerDisplay = checkResult.querySelector('.correct-answer-display');
+            const errorPlayButton = card.querySelector('.play-error-button');
+            const errorToParticleButton = card.querySelector('.play-error-to-particle-button');
+            
+            const userText = userInput.value.trim();
+            const originalText = sentenceData[idx].text;
+            
+            if (!userText) {
+                showNotification('请先输入内容再播放', 'warning');
+                return null;
+            }
+            
+            // 比较用户输入和原文
+            const comparisonResult = compareTexts(userText, originalText);
+            
+            // 保存错误位置和范围
+            sentenceData[idx].errors = comparisonResult.errorPositions;
+            
+            // 计算错误范围
+            if (comparisonResult.errorPositions.length > 0) {
+                const startPos = Math.min(...comparisonResult.errorPositions);
+                const endPos = Math.max(...comparisonResult.errorPositions);
+                sentenceData[idx].lastErrorRange = { start: startPos, end: endPos };
+                
+                const particleEndPos = findNextParticlePosition(originalText, startPos);
+                sentenceData[idx].lastErrorToParticleRange = { 
+                    start: startPos, 
+                    end: particleEndPos 
+                };
+            }
+            
+            // 显示结果区域
+            checkResult.classList.remove('hidden');
+            
+            // 更新状态和准确率
+            resultStatus.innerHTML = comparisonResult.correct ? 
+                '<span class="text-success"><i class="fa fa-check-circle mr-1"></i>回答正确</span>' : 
+                '<span class="text-error"><i class="fa fa-times-circle mr-1"></i>有错误</span>';
+            
+            accuracyDisplay.textContent = `准确率: ${comparisonResult.accuracy.toFixed(1)}%`;
+            
+            // 显示带标记的用户输入和正确答案
+            userInputDisplay.innerHTML = comparisonResult.userHtml;
+            correctAnswerDisplay.innerHTML = comparisonResult.correctHtml;
+            
+            // 根据检查结果显示/隐藏按钮
+            if (comparisonResult.correct) {
+                errorPlayButton.classList.add('hidden');
+                errorToParticleButton.classList.add('hidden');
+            } else {
+                errorPlayButton.classList.remove('hidden');
+                errorToParticleButton.classList.remove('hidden');
+            }
+            
+            return comparisonResult;
+        }
+
+        // 日语朗读函数
+        function speakJapanese(text, gender) {
+            try {
+                // 停止任何正在进行的朗读
+                window.speechSynthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'ja-JP';
+                utterance.rate = 0.9; // 稍慢的语速，适合学习
+                
+                // 尝试找到合适的语音
+                const voices = window.speechSynthesis.getVoices();
+                let selectedVoice = null;
+                
+                // 筛选日语语音
+                const japaneseVoices = voices.filter(voice => 
+                    voice.lang.includes('ja') || voice.name.includes('Japanese')
+                );
+                
+                if (japaneseVoices.length > 0) {
+                    // 根据性别选择语音
+                    if (gender === 'male') {
+                        selectedVoice = japaneseVoices.find(voice => 
+                            voice.name.toLowerCase().includes('male') || 
+                            voice.name.toLowerCase().includes('man')
+                        );
+                    } else if (gender === 'female') {
+                        selectedVoice = japaneseVoices.find(voice => 
+                            voice.name.toLowerCase().includes('female') || 
+                            voice.name.toLowerCase().includes('woman')
+                        );
+                    }
+                    
+                    // 如果没有找到对应性别的语音，使用第一个日语语音
+                    if (!selectedVoice) {
+                        selectedVoice = japaneseVoices[0];
+                    }
+                    
+                    utterance.voice = selectedVoice;
+                }
+                
+                window.speechSynthesis.speak(utterance);
+            } catch (error) {
+                console.error('语音合成失败:', error);
+                showNotification('语音合成功能不可用，请检查浏览器设置', 'error');
+            }
+        }
+
+        // 处理文本函数
         function processText() {
             try {
                 const mixedText = mixedTextarea.value.trim();
@@ -346,7 +530,9 @@
                                 sentenceData.push({
                                     text: processedText,
                                     gender: gender,
-                                    errors: [] // 存储错误位置
+                                    errors: [], // 存储错误位置
+                                    lastErrorRange: { start: 0, end: 0 }, // 存储上次错误范围
+                                    lastErrorToParticleRange: { start: 0, end: 0 } // 存储上次到助词的错误范围
                                 });
                             }
                         });
@@ -423,6 +609,12 @@
                                         data-index="${index}">
                                     <i class="fa fa-check mr-1"></i>检查答案
                                 </button>
+                                <!-- 助词按钮 -->
+                                <button class="play-error-to-particle-button px-4 py-1.5 bg-particle/10 text-particle hover:bg-particle hover:text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center hidden"
+                                        data-index="${index}">
+                                    <i class="fa fa-volume-up mr-1"></i>到助词为止
+                                </button>
+                                <!-- 错误播放按钮 -->
                                 <button class="play-error-button px-4 py-1.5 bg-accent/10 text-accent hover:bg-accent hover:text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center hidden"
                                         data-index="${index}">
                                     <i class="fa fa-volume-up mr-1"></i>从错误处播放
@@ -476,45 +668,62 @@
                         }, 500);
                     });
                     
-                    // 添加从错误处播放按钮事件
+                    // 简化的"到助词为止"按钮事件 - 先更新结果再朗读
+                    const errorToParticleBtn = sentenceCard.querySelector('.play-error-to-particle-button');
+                    errorToParticleBtn.addEventListener('click', function() {
+                        const idx = parseInt(this.getAttribute('data-index'));
+                        const card = this.closest('.bg-white.rounded-xl');
+                        
+                        // 1. 先更新对比结果
+                        const comparisonResult = updateComparisonResult(card, idx);
+                        if (!comparisonResult || comparisonResult.correct) {
+                            return; // 如果没有结果或回答正确，则不继续
+                        }
+                        
+                        // 2. 获取错误范围
+                        const { start, end } = sentenceData[idx].lastErrorToParticleRange;
+                        const originalText = sentenceData[idx].text;
+                        
+                        // 3. 朗读相应部分
+                        const playText = originalText.substring(
+                            start, 
+                            Math.min(end + 1, originalText.length)
+                        );
+                        
+                        // 4. 播放
+                        speakJapanese(playText, sentenceData[idx].gender);
+                        
+                        // 按钮动画效果
+                        this.classList.add('bg-particleLight', 'text-white');
+                        setTimeout(() => {
+                            this.classList.remove('bg-particleLight', 'text-white');
+                        }, 500);
+                    });
+                    
+                    // 简化的"从错误处播放"按钮事件 - 先更新结果再朗读
                     const errorPlayBtn = sentenceCard.querySelector('.play-error-button');
                     errorPlayBtn.addEventListener('click', function() {
                         const idx = parseInt(this.getAttribute('data-index'));
                         const card = this.closest('.bg-white.rounded-xl');
-                        const userInput = card.querySelector('.user-input').value.trim();
+                        
+                        // 1. 先更新对比结果
+                        const comparisonResult = updateComparisonResult(card, idx);
+                        if (!comparisonResult || comparisonResult.correct) {
+                            return; // 如果没有结果或回答正确，则不继续
+                        }
+                        
+                        // 2. 获取错误范围
+                        const { start, end } = sentenceData[idx].lastErrorRange;
                         const originalText = sentenceData[idx].text;
                         
-                        // 1. 先检查最新输入的内容
-                        if (!userInput) {
-                            showNotification('请先输入内容再播放错误部分', 'warning');
-                            return;
-                        }
-                        
-                        // 执行检查逻辑，更新显示和错误信息
-                        const checkBtn = card.querySelector('.check-button');
-                        checkBtn.click(); // 触发检查按钮点击事件，更新最新结果
-                        
-                        // 2. 获取更新后的错误信息
-                        const comparisonResult = compareTexts(userInput, originalText);
-                        sentenceData[idx].errors = comparisonResult.errorPositions;
-                        
-                        if (sentenceData[idx].errors.length === 0) {
-                            showNotification('没有检测到错误，无需播放', 'success');
-                            return;
-                        }
-                        
-                        // 3. 找到第一个错误位置和最后一个错误位置
-                        const firstErrorPos = Math.min(...sentenceData[idx].errors);
-                        const lastErrorPos = Math.max(...sentenceData[idx].errors);
-                        
-                        // 4. 只朗读从第一个错误到最后一个错误之间的部分
-                        const errorText = originalText.substring(
-                            firstErrorPos, 
-                            Math.min(lastErrorPos + 1, originalText.length)
+                        // 3. 朗读相应部分
+                        const playText = originalText.substring(
+                            start, 
+                            Math.min(end + 1, originalText.length)
                         );
                         
-                        // 5. 播放错误部分
-                        speakJapanese(errorText, sentenceData[idx].gender);
+                        // 4. 播放
+                        speakJapanese(playText, sentenceData[idx].gender);
                         
                         // 按钮动画效果
                         this.classList.add('bg-accent', 'text-white');
@@ -541,50 +750,28 @@
                     
                     // 检查按钮事件
                     const checkBtn = sentenceCard.querySelector('.check-button');
-                    const userInput = sentenceCard.querySelector('.user-input');
-                    const checkResult = sentenceCard.querySelector('.check-result');
-                    const resultStatus = checkResult.querySelector('.result-status');
-                    const accuracyDisplay = checkResult.querySelector('.accuracy');
-                    const userInputDisplay = checkResult.querySelector('.user-input-display');
-                    const correctAnswerDisplay = checkResult.querySelector('.correct-answer-display');
-                    const errorPlayButton = sentenceCard.querySelector('.play-error-button');
-                    
                     checkBtn.addEventListener('click', function() {
                         const idx = parseInt(this.getAttribute('data-index'));
-                        const userText = userInput.value.trim();
-                        const originalText = sentenceData[idx].text;
+                        const card = this.closest('.bg-white.rounded-xl');
                         
-                        if (!userText) {
-                            showNotification('请先输入内容再检查', 'warning');
-                            return;
-                        }
+                        // 直接调用更新对比结果的函数
+                        updateComparisonResult(card, idx);
+                    });
+                    
+                    // 监听用户输入变化，显示按钮
+                    const userInput = sentenceCard.querySelector('.user-input');
+                    userInput.addEventListener('input', function() {
+                        const errorPlayButton = card.querySelector('.play-error-button');
+                        const errorToParticleButton = card.querySelector('.play-error-to-particle-button');
                         
-                        // 比较用户输入和原文
-                        const comparisonResult = compareTexts(userText, originalText);
-                        
-                        // 保存错误位置
-                        sentenceData[idx].errors = comparisonResult.errorPositions;
-                        
-                        // 显示结果
-                        checkResult.classList.remove('hidden');
-                        
-                        // 显示/隐藏错误播放按钮
-                        if (comparisonResult.errorPositions.length > 0) {
+                        // 只要有输入，就显示按钮
+                        if (this.value.trim() !== '') {
                             errorPlayButton.classList.remove('hidden');
+                            errorToParticleButton.classList.remove('hidden');
                         } else {
                             errorPlayButton.classList.add('hidden');
+                            errorToParticleButton.classList.add('hidden');
                         }
-                        
-                        // 更新状态和准确率
-                        resultStatus.innerHTML = comparisonResult.correct ? 
-                            '<span class="text-success"><i class="fa fa-check-circle mr-1"></i>回答正确</span>' : 
-                            '<span class="text-error"><i class="fa fa-times-circle mr-1"></i>有错误</span>';
-                        
-                        accuracyDisplay.textContent = `准确率: ${comparisonResult.accuracy.toFixed(1)}%`;
-                        
-                        // 显示带标记的用户输入和正确答案
-                        userInputDisplay.innerHTML = comparisonResult.userHtml;
-                        correctAnswerDisplay.innerHTML = comparisonResult.correctHtml;
                     });
                 });
                 
@@ -595,102 +782,6 @@
             } catch (error) {
                 console.error('处理文本时出错:', error);
                 showNotification('处理文本时发生错误，请检查输入格式', 'error');
-            }
-        }
-
-        // 比较文本并记录错误位置
-        function compareTexts(userText, originalText) {
-            let userHtml = '';
-            let correctHtml = '';
-            let correctCount = 0;
-            let errorPositions = []; // 记录错误位置
-            const maxLength = Math.max(userText.length, originalText.length);
-            
-            for (let i = 0; i < maxLength; i++) {
-                const userChar = i < userText.length ? userText[i] : '';
-                const originalChar = i < originalText.length ? originalText[i] : '';
-                
-                if (userChar === originalChar && userChar !== '') {
-                    // 字符正确
-                    userHtml += `<span class="correct-char">${userChar}</span>`;
-                    correctHtml += `<span class="correct-char">${originalChar}</span>`;
-                    correctCount++;
-                } else {
-                    // 字符错误，记录位置
-                    errorPositions.push(i);
-                    
-                    if (userChar && originalChar) {
-                        // 替换错误
-                        userHtml += `<span class="incorrect-char">${userChar}</span>`;
-                        correctHtml += `<span class="incorrect-char">${originalChar}</span>`;
-                    } else if (userChar && !originalChar) {
-                        // 插入错误
-                        userHtml += `<span class="extra-char">${userChar}</span>`;
-                    } else if (!userChar && originalChar) {
-                        // 删除错误
-                        userHtml += `<span class="missing-char"> </span>`;
-                        correctHtml += `<span class="missing-char">${originalChar}</span>`;
-                    }
-                }
-            }
-            
-            const accuracy = originalText.length > 0 ? (correctCount / originalText.length) * 100 : 0;
-            const correct = accuracy === 100;
-            
-            return {
-                userHtml: userHtml,
-                correctHtml: correctHtml,
-                accuracy: accuracy,
-                correct: correct,
-                errorPositions: errorPositions
-            };
-        }
-
-        // 日语朗读函数
-        function speakJapanese(text, gender) {
-            try {
-                // 停止任何正在进行的朗读
-                window.speechSynthesis.cancel();
-                
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'ja-JP';
-                utterance.rate = 0.9; // 稍慢的语速，适合学习
-                
-                // 尝试找到合适的语音
-                const voices = window.speechSynthesis.getVoices();
-                let selectedVoice = null;
-                
-                // 筛选日语语音
-                const japaneseVoices = voices.filter(voice => 
-                    voice.lang.includes('ja') || voice.name.includes('Japanese')
-                );
-                
-                if (japaneseVoices.length > 0) {
-                    // 根据性别选择语音
-                    if (gender === 'male') {
-                        selectedVoice = japaneseVoices.find(voice => 
-                            voice.name.toLowerCase().includes('male') || 
-                            voice.name.toLowerCase().includes('man')
-                        );
-                    } else if (gender === 'female') {
-                        selectedVoice = japaneseVoices.find(voice => 
-                            voice.name.toLowerCase().includes('female') || 
-                            voice.name.toLowerCase().includes('woman')
-                        );
-                    }
-                    
-                    // 如果没有找到对应性别的语音，使用第一个日语语音
-                    if (!selectedVoice) {
-                        selectedVoice = japaneseVoices[0];
-                    }
-                    
-                    utterance.voice = selectedVoice;
-                }
-                
-                window.speechSynthesis.speak(utterance);
-            } catch (error) {
-                console.error('语音合成失败:', error);
-                showNotification('语音合成功能不可用，请检查浏览器设置', 'error');
             }
         }
 
