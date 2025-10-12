@@ -212,6 +212,50 @@
         </div>
     </footer>
 
+    <!-- 编辑句子的模态框 -->
+    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-lg">
+            <div class="p-6 border-b border-neutral-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-neutral-800">编辑句子</h3>
+                    <button id="close-modal" class="text-neutral-500 hover:text-neutral-800">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <input type="hidden" id="edit-sentence-index">
+                
+                <div class="mb-4">
+                    <label for="edit-gender" class="block text-sm font-medium text-neutral-700 mb-1">性别</label>
+                    <select id="edit-gender" class="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary">
+                        <option value="">无</option>
+                        <option value="male">男性</option>
+                        <option value="female">女性</option>
+                    </select>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="edit-japanese" class="block text-sm font-medium text-neutral-700 mb-1">日语句子</label>
+                    <textarea id="edit-japanese" rows="3" class="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary font-japanese"></textarea>
+                </div>
+                
+                <div>
+                    <label for="edit-chinese" class="block text-sm font-medium text-neutral-700 mb-1">中文翻译</label>
+                    <textarea id="edit-chinese" rows="3" class="w-full px-3 py-2 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary"></textarea>
+                </div>
+            </div>
+            <div class="p-4 bg-neutral-50 rounded-b-xl flex justify-end gap-3">
+                <button id="cancel-edit" class="px-4 py-2 border border-neutral-300 rounded-lg text-neutral-700 hover:bg-neutral-100 transition-all">
+                    取消
+                </button>
+                <button id="save-edit" class="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg shadow-sm hover:shadow transition-all">
+                    保存
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript -->
     <script>
         // 日语常用助词列表
@@ -229,9 +273,20 @@
         const mobileMenuButton = document.getElementById('mobile-menu-button');
         const mobileMenu = document.getElementById('mobile-menu');
         const navbar = document.getElementById('navbar');
+        
+        // 编辑模态框元素
+        const editModal = document.getElementById('edit-modal');
+        const closeModal = document.getElementById('close-modal');
+        const cancelEdit = document.getElementById('cancel-edit');
+        const saveEdit = document.getElementById('save-edit');
+        const editSentenceIndex = document.getElementById('edit-sentence-index');
+        const editGender = document.getElementById('edit-gender');
+        const editJapanese = document.getElementById('edit-japanese');
+        const editChinese = document.getElementById('edit-chinese');
 
         // 存储句子数据，用于错误定位播放
         let sentenceData = [];
+        let chineseSentences = [];
 
         // 初始化页面状态
         updateEmptyState();
@@ -264,7 +319,45 @@
             mixedTextarea.focus();
             resultsSection.classList.add('hidden');
             sentenceData = [];
+            chineseSentences = [];
             updateEmptyState();
+        });
+
+        // 模态框控制
+        closeModal.addEventListener('click', () => {
+            editModal.classList.add('hidden');
+        });
+        
+        cancelEdit.addEventListener('click', () => {
+            editModal.classList.add('hidden');
+        });
+        
+        // 点击模态框外部关闭
+        editModal.addEventListener('click', (e) => {
+            if (e.target === editModal) {
+                editModal.classList.add('hidden');
+            }
+        });
+        
+        // 保存编辑
+        saveEdit.addEventListener('click', () => {
+            const index = parseInt(editSentenceIndex.value);
+            if (isNaN(index) || index < 0 || index >= sentenceData.length) {
+                return;
+            }
+            
+            // 更新数据
+            sentenceData[index].text = editJapanese.value.trim();
+            sentenceData[index].gender = editGender.value;
+            chineseSentences[index] = editChinese.value.trim();
+            
+            // 重新渲染所有句子卡片
+            renderAllSentenceCards();
+            
+            // 关闭模态框
+            editModal.classList.add('hidden');
+            
+            showNotification('句子已更新', 'success');
         });
 
         // 判断文本是否包含日语字符
@@ -323,6 +416,40 @@
             }
             
             // 如果没有找到助词，返回文本末尾
+            return text.length - 1;
+        }
+        
+        // 查找从指定位置开始的第N个助词位置
+        function findNthParticlePosition(text, startPos, count) {
+            let particleCount = 0;
+            let lastPosition = startPos;
+            
+            // 从起始位置开始检查每个字符
+            for (let i = startPos; i < text.length; i++) {
+                // 检查当前字符是否是助词
+                if (japaneseParticles.includes(text[i])) {
+                    particleCount++;
+                    lastPosition = i;
+                    if (particleCount >= count) {
+                        return lastPosition;
+                    }
+                }
+                
+                // 检查是否是双字符助词（如"って"）
+                if (i < text.length - 1) {
+                    const twoChars = text[i] + text[i + 1];
+                    if (japaneseParticles.includes(twoChars)) {
+                        particleCount++;
+                        lastPosition = i + 1;
+                        if (particleCount >= count) {
+                            return lastPosition;
+                        }
+                        i++; // 跳过已处理的第二个字符
+                    }
+                }
+            }
+            
+            // 如果找到的助词不足N个，返回文本末尾
             return text.length - 1;
         }
 
@@ -384,6 +511,7 @@
             const correctAnswerDisplay = checkResult.querySelector('.correct-answer-display');
             const errorPlayButton = card.querySelector('.play-error-button');
             const errorToParticleButton = card.querySelector('.play-error-to-particle-button');
+            const shortPlayButton = card.querySelector('.short-play-button');
             
             const userText = userInput.value.trim();
             const originalText = sentenceData[idx].text;
@@ -405,10 +533,22 @@
                 const endPos = Math.max(...comparisonResult.errorPositions);
                 sentenceData[idx].lastErrorRange = { start: startPos, end: endPos };
                 
+                // 计算到助词为止的范围
                 const particleEndPos = findNextParticlePosition(originalText, startPos);
                 sentenceData[idx].lastErrorToParticleRange = { 
                     start: startPos, 
                     end: particleEndPos 
+                };
+                
+                // 计算短播放范围（2-3个助词）
+                const shortPlayEndPos = findNthParticlePosition(originalText, startPos, 3);
+                // 如果内容较短，至少保证2个助词
+                if (shortPlayEndPos - startPos < 5) {
+                    shortPlayEndPos = findNthParticlePosition(originalText, startPos, 3);
+                }
+                sentenceData[idx].shortPlayRange = { 
+                    start: startPos, 
+                    end: shortPlayEndPos 
                 };
             }
             
@@ -430,9 +570,11 @@
             if (comparisonResult.correct) {
                 errorPlayButton.classList.add('hidden');
                 errorToParticleButton.classList.add('hidden');
+                shortPlayButton.classList.add('hidden');
             } else {
                 errorPlayButton.classList.remove('hidden');
                 errorToParticleButton.classList.remove('hidden');
+                shortPlayButton.classList.remove('hidden');
             }
             
             return comparisonResult;
@@ -486,6 +628,283 @@
             }
         }
 
+        // 渲染所有句子卡片
+        function renderAllSentenceCards() {
+            sentencesContainer.innerHTML = '';
+            
+            sentenceData.forEach((japaneseSentence, index) => {
+                const chineseSentence = chineseSentences[index];
+                const { text: japaneseText, gender } = japaneseSentence;
+                
+                // 性别标识
+                let genderBadge = '';
+                if (gender === 'male') {
+                    genderBadge = '<span class="bg-male/10 text-male text-xs font-medium px-2 py-0.5 rounded ml-2">男性</span>';
+                } else if (gender === 'female') {
+                    genderBadge = '<span class="bg-female/10 text-female text-xs font-medium px-2 py-0.5 rounded ml-2">女性</span>';
+                }
+                
+                // 创建句子卡片
+                const sentenceCard = document.createElement('div');
+                sentenceCard.className = 'bg-white rounded-xl shadow-sm p-6 card-hover border border-neutral-100';
+                sentenceCard.innerHTML = `
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-center">
+                            <span class="bg-primary/10 text-primary text-sm font-medium px-3 py-1 rounded-full">句子 ${index + 1}</span>
+                            ${genderBadge}
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="play-button text-neutral-500 hover:text-secondary transition-colors p-2 rounded-full hover:bg-secondary/10 focus:outline-none" 
+                                    data-index="${index}">
+                                <i class="fa fa-volume-up text-xl"></i>
+                            </button>
+                            <button class="toggle-original-button text-neutral-500 hover:text-primary transition-colors p-2 rounded-full hover:bg-primary/10 focus:outline-none"
+                                    data-index="${index}">
+                                <i class="fa fa-eye text-xl"></i>
+                            </button>
+                            <button class="edit-button text-neutral-500 hover:text-accent transition-colors p-2 rounded-full hover:bg-accent/10 focus:outline-none"
+                                    data-index="${index}">
+                                <i class="fa fa-pencil text-xl"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 用户输入区域 -->
+                    <div class="mb-4">
+                        <h4 class="text-sm font-medium text-neutral-500 mb-2">请输入你听到的日语</h4>
+                        <textarea 
+                            class="user-input w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none font-japanese text-lg"
+                            rows="2"
+                            placeholder="在这里输入你听到的日语..."></textarea>
+                        <div class="flex flex-wrap justify-end mt-2 gap-2">
+                            <button class="check-button px-4 py-1.5 bg-primary hover:bg-primary/90 text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center"
+                                    data-index="${index}">
+                                <i class="fa fa-check mr-1"></i>检查答案
+                            </button>
+                            <!-- 短播放按钮 -->
+                            <button class="short-play-button px-4 py-1.5 bg-secondary/10 text-secondary hover:bg-secondary hover:text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center hidden"
+                                    data-index="${index}">
+                                <i class="fa fa-volume-up mr-1"></i>短播放
+                            </button>
+                            <!-- 助词按钮 -->
+                            <button class="play-error-to-particle-button px-4 py-1.5 bg-particle/10 text-particle hover:bg-particle hover:text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center hidden"
+                                    data-index="${index}">
+                                <i class="fa fa-volume-up mr-1"></i>到助词为止
+                            </button>
+                            <!-- 错误播放按钮 -->
+                            <button class="play-error-button px-4 py-1.5 bg-accent/10 text-accent hover:bg-accent hover:text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center hidden"
+                                    data-index="${index}">
+                                <i class="fa fa-volume-up mr-1"></i>从错误处播放
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 检查结果区域 -->
+                    <div class="check-result hidden mb-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium result-status"></span>
+                            <span class="text-xs text-neutral-500 accuracy"></span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <span class="text-xs font-medium text-neutral-500">你的输入：</span>
+                                <div class="user-input-display font-japanese text-sm p-2 bg-neutral-50 rounded"></div>
+                            </div>
+                            <div>
+                                <span class="text-xs font-medium text-neutral-500">正确答案：</span>
+                                <div class="correct-answer-display font-japanese text-sm p-2 bg-neutral-50 rounded"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 日语原文（默认隐藏） -->
+                    <div class="japanese-original hidden mb-4">
+                        <h4 class="text-sm font-medium text-neutral-500 mb-1">日语原文</h4>
+                        <p class="font-japanese text-lg text-neutral-800">${japaneseText}</p>
+                    </div>
+                    
+                    <!-- 中文翻译 -->
+                    <div>
+                        <h4 class="text-sm font-medium text-neutral-500 mb-1">中文翻译</h4>
+                        <p class="text-neutral-700">${chineseSentence}</p>
+                    </div>
+                `;
+                
+                sentencesContainer.appendChild(sentenceCard);
+                
+                // 添加朗读按钮事件
+                const playBtn = sentenceCard.querySelector('.play-button');
+                playBtn.addEventListener('click', function() {
+                    const idx = parseInt(this.getAttribute('data-index'));
+                    speakJapanese(sentenceData[idx].text, sentenceData[idx].gender);
+                    
+                    // 按钮动画效果
+                    this.classList.add('text-secondary');
+                    setTimeout(() => {
+                        this.classList.remove('text-secondary');
+                    }, 500);
+                });
+                
+                // 编辑按钮事件
+                const editBtn = sentenceCard.querySelector('.edit-button');
+                editBtn.addEventListener('click', function() {
+                    const idx = parseInt(this.getAttribute('data-index'));
+                    const sentence = sentenceData[idx];
+                    const chinese = chineseSentences[idx];
+                    
+                    // 填充编辑表单
+                    editSentenceIndex.value = idx;
+                    editGender.value = sentence.gender || '';
+                    editJapanese.value = sentence.text;
+                    editChinese.value = chinese;
+                    
+                    // 显示模态框
+                    editModal.classList.remove('hidden');
+                });
+                
+                // "到助词为止"按钮事件
+                const errorToParticleBtn = sentenceCard.querySelector('.play-error-to-particle-button');
+                errorToParticleBtn.addEventListener('click', function() {
+                    const idx = parseInt(this.getAttribute('data-index'));
+                    const card = this.closest('.bg-white.rounded-xl');
+                    
+                    // 1. 先更新对比结果
+                    const comparisonResult = updateComparisonResult(card, idx);
+                    if (!comparisonResult || comparisonResult.correct) {
+                        return; // 如果没有结果或回答正确，则不继续
+                    }
+                    
+                    // 2. 获取错误范围
+                    const { start, end } = sentenceData[idx].lastErrorToParticleRange;
+                    const originalText = sentenceData[idx].text;
+                    
+                    // 3. 朗读相应部分
+                    const playText = originalText.substring(
+                        start, 
+                        Math.min(end + 1, originalText.length)
+                    );
+                    
+                    // 4. 播放
+                    speakJapanese(playText, sentenceData[idx].gender);
+                    
+                    // 按钮动画效果
+                    this.classList.add('bg-particleLight', 'text-white');
+                    setTimeout(() => {
+                        this.classList.remove('bg-particleLight', 'text-white');
+                    }, 500);
+                });
+                
+                // "短播放"按钮事件 - 播放2-3个助词长度
+                const shortPlayBtn = sentenceCard.querySelector('.short-play-button');
+                shortPlayBtn.addEventListener('click', function() {
+                    const idx = parseInt(this.getAttribute('data-index'));
+                    const card = this.closest('.bg-white.rounded-xl');
+                    
+                    // 1. 先更新对比结果
+                    const comparisonResult = updateComparisonResult(card, idx);
+                    if (!comparisonResult || comparisonResult.correct) {
+                        return; // 如果没有结果或回答正确，则不继续
+                    }
+                    
+                    // 2. 获取短播放范围
+                    const { start, end } = sentenceData[idx].shortPlayRange;
+                    const originalText = sentenceData[idx].text;
+                    
+                    // 3. 朗读相应部分
+                    const playText = originalText.substring(
+                        start, 
+                        Math.min(end + 1, originalText.length)
+                    );
+                    
+                    // 4. 播放
+                    speakJapanese(playText, sentenceData[idx].gender);
+                    
+                    // 按钮动画效果
+                    this.classList.add('bg-secondary', 'text-white');
+                    setTimeout(() => {
+                        this.classList.remove('bg-secondary', 'text-white');
+                    }, 500);
+                });
+                
+                // "从错误处播放"按钮事件
+                const errorPlayBtn = sentenceCard.querySelector('.play-error-button');
+                errorPlayBtn.addEventListener('click', function() {
+                    const idx = parseInt(this.getAttribute('data-index'));
+                    const card = this.closest('.bg-white.rounded-xl');
+                    
+                    // 1. 先更新对比结果
+                    const comparisonResult = updateComparisonResult(card, idx);
+                    if (!comparisonResult || comparisonResult.correct) {
+                        return; // 如果没有结果或回答正确，则不继续
+                    }
+                    
+                    // 2. 获取错误范围
+                    const { start, end } = sentenceData[idx].lastErrorRange;
+                    const originalText = sentenceData[idx].text;
+                    
+                    // 3. 朗读相应部分
+                    const playText = originalText.substring(
+                        start, 
+                        Math.min(end + 1, originalText.length)
+                    );
+                    
+                    // 4. 播放
+                    speakJapanese(playText, sentenceData[idx].gender);
+                    
+                    // 按钮动画效果
+                    this.classList.add('bg-accent', 'text-white');
+                    setTimeout(() => {
+                        this.classList.remove('bg-accent', 'text-white');
+                    }, 500);
+                });
+                
+                // 显示/隐藏原文按钮事件
+                const toggleBtn = sentenceCard.querySelector('.toggle-original-button');
+                const originalTxt = sentenceCard.querySelector('.japanese-original');
+                
+                toggleBtn.addEventListener('click', function() {
+                    originalTxt.classList.toggle('hidden');
+                    const icon = this.querySelector('i');
+                    if (originalTxt.classList.contains('hidden')) {
+                        icon.classList.remove('fa-eye-slash');
+                        icon.classList.add('fa-eye');
+                    } else {
+                        icon.classList.remove('fa-eye');
+                        icon.classList.add('fa-eye-slash');
+                    }
+                });
+                
+                // 检查按钮事件
+                const checkBtn = sentenceCard.querySelector('.check-button');
+                checkBtn.addEventListener('click', function() {
+                    const idx = parseInt(this.getAttribute('data-index'));
+                    const card = this.closest('.bg-white.rounded-xl');
+                    
+                    // 直接调用更新对比结果的函数
+                    updateComparisonResult(card, idx);
+                });
+                
+                // 监听用户输入变化，显示按钮
+                const userInput = sentenceCard.querySelector('.user-input');
+                userInput.addEventListener('input', function() {
+                    const errorPlayButton = card.querySelector('.play-error-button');
+                    const errorToParticleButton = card.querySelector('.play-error-to-particle-button');
+                    const shortPlayButton = card.querySelector('.short-play-button');
+                    
+                    // 只要有输入，就显示按钮
+                    if (this.value.trim() !== '') {
+                        errorPlayButton.classList.remove('hidden');
+                        errorToParticleButton.classList.remove('hidden');
+                        shortPlayButton.classList.remove('hidden');
+                    } else {
+                        errorPlayButton.classList.add('hidden');
+                        errorToParticleButton.classList.add('hidden');
+                        shortPlayButton.classList.add('hidden');
+                    }
+                });
+            });
+        }
+
         // 处理文本函数
         function processText() {
             try {
@@ -516,7 +935,7 @@
                 
                 // 分离日语和中文句子
                 sentenceData = [];
-                const chineseSentences = [];
+                chineseSentences = [];
                 
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
@@ -532,7 +951,8 @@
                                     gender: gender,
                                     errors: [], // 存储错误位置
                                     lastErrorRange: { start: 0, end: 0 }, // 存储上次错误范围
-                                    lastErrorToParticleRange: { start: 0, end: 0 } // 存储上次到助词的错误范围
+                                    lastErrorToParticleRange: { start: 0, end: 0 }, // 存储上次到助词的错误范围
+                                    shortPlayRange: { start: 0, end: 0 } // 存储短播放范围
                                 });
                             }
                         });
@@ -560,220 +980,8 @@
                 // 更新句子计数
                 sentenceCountElement.textContent = sentenceData.length;
                 
-                // 清空容器并添加新句子
-                sentencesContainer.innerHTML = '';
-                
-                // 生成句子卡片
-                sentenceData.forEach((japaneseSentence, index) => {
-                    const chineseSentence = chineseSentences[index];
-                    const { text: japaneseText, gender } = japaneseSentence;
-                    
-                    // 性别标识
-                    let genderBadge = '';
-                    if (gender === 'male') {
-                        genderBadge = '<span class="bg-male/10 text-male text-xs font-medium px-2 py-0.5 rounded ml-2">男性</span>';
-                    } else if (gender === 'female') {
-                        genderBadge = '<span class="bg-female/10 text-female text-xs font-medium px-2 py-0.5 rounded ml-2">女性</span>';
-                    }
-                    
-                    // 创建句子卡片
-                    const sentenceCard = document.createElement('div');
-                    sentenceCard.className = 'bg-white rounded-xl shadow-sm p-6 card-hover border border-neutral-100';
-                    sentenceCard.innerHTML = `
-                        <div class="flex items-start justify-between mb-4">
-                            <div class="flex items-center">
-                                <span class="bg-primary/10 text-primary text-sm font-medium px-3 py-1 rounded-full">句子 ${index + 1}</span>
-                                ${genderBadge}
-                            </div>
-                            <div class="flex space-x-2">
-                                <button class="play-button text-neutral-500 hover:text-secondary transition-colors p-2 rounded-full hover:bg-secondary/10 focus:outline-none" 
-                                        data-index="${index}">
-                                    <i class="fa fa-volume-up text-xl"></i>
-                                </button>
-                                <button class="toggle-original-button text-neutral-500 hover:text-primary transition-colors p-2 rounded-full hover:bg-primary/10 focus:outline-none"
-                                        data-index="${index}">
-                                    <i class="fa fa-eye text-xl"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- 用户输入区域 -->
-                        <div class="mb-4">
-                            <h4 class="text-sm font-medium text-neutral-500 mb-2">请输入你听到的日语</h4>
-                            <textarea 
-                                class="user-input w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none font-japanese text-lg"
-                                rows="2"
-                                placeholder="在这里输入你听到的日语..."></textarea>
-                            <div class="flex justify-end mt-2 gap-2">
-                                <button class="check-button px-4 py-1.5 bg-primary hover:bg-primary/90 text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center"
-                                        data-index="${index}">
-                                    <i class="fa fa-check mr-1"></i>检查答案
-                                </button>
-                                <!-- 助词按钮 -->
-                                <button class="play-error-to-particle-button px-4 py-1.5 bg-particle/10 text-particle hover:bg-particle hover:text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center hidden"
-                                        data-index="${index}">
-                                    <i class="fa fa-volume-up mr-1"></i>到助词为止
-                                </button>
-                                <!-- 错误播放按钮 -->
-                                <button class="play-error-button px-4 py-1.5 bg-accent/10 text-accent hover:bg-accent hover:text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center hidden"
-                                        data-index="${index}">
-                                    <i class="fa fa-volume-up mr-1"></i>从错误处播放
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- 检查结果区域 -->
-                        <div class="check-result hidden mb-4">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-sm font-medium result-status"></span>
-                                <span class="text-xs text-neutral-500 accuracy"></span>
-                            </div>
-                            <div class="space-y-3">
-                                <div>
-                                    <span class="text-xs font-medium text-neutral-500">你的输入：</span>
-                                    <div class="user-input-display font-japanese text-sm p-2 bg-neutral-50 rounded"></div>
-                                </div>
-                                <div>
-                                    <span class="text-xs font-medium text-neutral-500">正确答案：</span>
-                                    <div class="correct-answer-display font-japanese text-sm p-2 bg-neutral-50 rounded"></div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- 日语原文（默认隐藏） -->
-                        <div class="japanese-original hidden mb-4">
-                            <h4 class="text-sm font-medium text-neutral-500 mb-1">日语原文</h4>
-                            <p class="font-japanese text-lg text-neutral-800">${japaneseText}</p>
-                        </div>
-                        
-                        <!-- 中文翻译 -->
-                        <div>
-                            <h4 class="text-sm font-medium text-neutral-500 mb-1">中文翻译</h4>
-                            <p class="text-neutral-700">${chineseSentence}</p>
-                        </div>
-                    `;
-                    
-                    sentencesContainer.appendChild(sentenceCard);
-                    
-                    // 添加朗读按钮事件
-                    const playBtn = sentenceCard.querySelector('.play-button');
-                    playBtn.addEventListener('click', function() {
-                        const idx = parseInt(this.getAttribute('data-index'));
-                        speakJapanese(sentenceData[idx].text, sentenceData[idx].gender);
-                        
-                        // 按钮动画效果
-                        this.classList.add('text-secondary');
-                        setTimeout(() => {
-                            this.classList.remove('text-secondary');
-                        }, 500);
-                    });
-                    
-                    // 简化的"到助词为止"按钮事件 - 先更新结果再朗读
-                    const errorToParticleBtn = sentenceCard.querySelector('.play-error-to-particle-button');
-                    errorToParticleBtn.addEventListener('click', function() {
-                        const idx = parseInt(this.getAttribute('data-index'));
-                        const card = this.closest('.bg-white.rounded-xl');
-                        
-                        // 1. 先更新对比结果
-                        const comparisonResult = updateComparisonResult(card, idx);
-                        if (!comparisonResult || comparisonResult.correct) {
-                            return; // 如果没有结果或回答正确，则不继续
-                        }
-                        
-                        // 2. 获取错误范围
-                        const { start, end } = sentenceData[idx].lastErrorToParticleRange;
-                        const originalText = sentenceData[idx].text;
-                        
-                        // 3. 朗读相应部分
-                        const playText = originalText.substring(
-                            start, 
-                            Math.min(end + 1, originalText.length)
-                        );
-                        
-                        // 4. 播放
-                        speakJapanese(playText, sentenceData[idx].gender);
-                        
-                        // 按钮动画效果
-                        this.classList.add('bg-particleLight', 'text-white');
-                        setTimeout(() => {
-                            this.classList.remove('bg-particleLight', 'text-white');
-                        }, 500);
-                    });
-                    
-                    // 简化的"从错误处播放"按钮事件 - 先更新结果再朗读
-                    const errorPlayBtn = sentenceCard.querySelector('.play-error-button');
-                    errorPlayBtn.addEventListener('click', function() {
-                        const idx = parseInt(this.getAttribute('data-index'));
-                        const card = this.closest('.bg-white.rounded-xl');
-                        
-                        // 1. 先更新对比结果
-                        const comparisonResult = updateComparisonResult(card, idx);
-                        if (!comparisonResult || comparisonResult.correct) {
-                            return; // 如果没有结果或回答正确，则不继续
-                        }
-                        
-                        // 2. 获取错误范围
-                        const { start, end } = sentenceData[idx].lastErrorRange;
-                        const originalText = sentenceData[idx].text;
-                        
-                        // 3. 朗读相应部分
-                        const playText = originalText.substring(
-                            start, 
-                            Math.min(end + 1, originalText.length)
-                        );
-                        
-                        // 4. 播放
-                        speakJapanese(playText, sentenceData[idx].gender);
-                        
-                        // 按钮动画效果
-                        this.classList.add('bg-accent', 'text-white');
-                        setTimeout(() => {
-                            this.classList.remove('bg-accent', 'text-white');
-                        }, 500);
-                    });
-                    
-                    // 显示/隐藏原文按钮事件
-                    const toggleBtn = sentenceCard.querySelector('.toggle-original-button');
-                    const originalTxt = sentenceCard.querySelector('.japanese-original');
-                    
-                    toggleBtn.addEventListener('click', function() {
-                        originalTxt.classList.toggle('hidden');
-                        const icon = this.querySelector('i');
-                        if (originalTxt.classList.contains('hidden')) {
-                            icon.classList.remove('fa-eye-slash');
-                            icon.classList.add('fa-eye');
-                        } else {
-                            icon.classList.remove('fa-eye');
-                            icon.classList.add('fa-eye-slash');
-                        }
-                    });
-                    
-                    // 检查按钮事件
-                    const checkBtn = sentenceCard.querySelector('.check-button');
-                    checkBtn.addEventListener('click', function() {
-                        const idx = parseInt(this.getAttribute('data-index'));
-                        const card = this.closest('.bg-white.rounded-xl');
-                        
-                        // 直接调用更新对比结果的函数
-                        updateComparisonResult(card, idx);
-                    });
-                    
-                    // 监听用户输入变化，显示按钮
-                    const userInput = sentenceCard.querySelector('.user-input');
-                    userInput.addEventListener('input', function() {
-                        const errorPlayButton = card.querySelector('.play-error-button');
-                        const errorToParticleButton = card.querySelector('.play-error-to-particle-button');
-                        
-                        // 只要有输入，就显示按钮
-                        if (this.value.trim() !== '') {
-                            errorPlayButton.classList.remove('hidden');
-                            errorToParticleButton.classList.remove('hidden');
-                        } else {
-                            errorPlayButton.classList.add('hidden');
-                            errorToParticleButton.classList.add('hidden');
-                        }
-                    });
-                });
+                // 渲染句子卡片
+                renderAllSentenceCards();
                 
                 // 滚动到结果区域
                 resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
