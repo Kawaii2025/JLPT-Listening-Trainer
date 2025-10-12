@@ -15,13 +15,15 @@
             theme: {
                 extend: {
                     colors: {
-                        primary: '#3B82F6',
-                        secondary: '#F97316',
-                        success: '#10B981',
-                        error: '#EF4444',
-                        accent: '#8B5CF6',
-                        particle: '#D97706', // 助词按钮主色（深琥珀色）
-                        particleLight: '#F59E0B', // 助词按钮高亮色
+                        primary: '#3B82F6', // 主色调-蓝色
+                        secondary: '#F97316', // 辅助色-橙色
+                        success: '#10B981', // 成功-绿色
+                        error: '#EF4444', // 错误-红色
+                        accent: '#8B5CF6', // 强调色-紫色
+                        particle: '#06B6D4', // 助词按钮主色（青色）- 与其他按钮明显区分
+                        particleLight: '#22D3EE', // 助词按钮高亮色
+                        shortPlay: '#EC4899', // 短播放按钮主色（粉色）- 全新颜色
+                        shortPlayLight: '#F472B6', // 短播放按钮高亮色
                         male: '#2563EB',
                         female: '#DB2777',
                         neutral: {
@@ -681,17 +683,17 @@
                                     data-index="${index}">
                                 <i class="fa fa-check mr-1"></i>检查答案
                             </button>
-                            <!-- 短播放按钮 -->
-                            <button class="short-play-button px-4 py-1.5 bg-secondary/10 text-secondary hover:bg-secondary hover:text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center hidden"
+                            <!-- 短播放按钮 - 粉色系 -->
+                            <button class="short-play-button px-4 py-1.5 bg-shortPlay/10 text-shortPlay hover:bg-shortPlay hover:text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center hidden"
                                     data-index="${index}">
                                 <i class="fa fa-volume-up mr-1"></i>短播放
                             </button>
-                            <!-- 助词按钮 -->
+                            <!-- 助词按钮 - 青色系 -->
                             <button class="play-error-to-particle-button px-4 py-1.5 bg-particle/10 text-particle hover:bg-particle hover:text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center hidden"
                                     data-index="${index}">
                                 <i class="fa fa-volume-up mr-1"></i>到助词为止
                             </button>
-                            <!-- 错误播放按钮 -->
+                            <!-- 错误播放按钮 - 紫色系 -->
                             <button class="play-error-button px-4 py-1.5 bg-accent/10 text-accent hover:bg-accent hover:text-white rounded-lg shadow-sm hover:shadow transition-all text-sm flex items-center hidden"
                                     data-index="${index}">
                                 <i class="fa fa-volume-up mr-1"></i>从错误处播放
@@ -762,7 +764,7 @@
                     editModal.classList.remove('hidden');
                 });
                 
-                // "到助词为止"按钮事件
+                // "到助词为止"按钮事件 - 青色系
                 const errorToParticleBtn = sentenceCard.querySelector('.play-error-to-particle-button');
                 errorToParticleBtn.addEventListener('click', function() {
                     const idx = parseInt(this.getAttribute('data-index'));
@@ -794,7 +796,7 @@
                     }, 500);
                 });
                 
-                // "短播放"按钮事件 - 播放2-3个助词长度
+                // "短播放"按钮事件 - 粉色系
                 const shortPlayBtn = sentenceCard.querySelector('.short-play-button');
                 shortPlayBtn.addEventListener('click', function() {
                     const idx = parseInt(this.getAttribute('data-index'));
@@ -820,13 +822,13 @@
                     speakJapanese(playText, sentenceData[idx].gender);
                     
                     // 按钮动画效果
-                    this.classList.add('bg-secondary', 'text-white');
+                    this.classList.add('bg-shortPlayLight', 'text-white');
                     setTimeout(() => {
-                        this.classList.remove('bg-secondary', 'text-white');
+                        this.classList.remove('bg-shortPlayLight', 'text-white');
                     }, 500);
                 });
                 
-                // "从错误处播放"按钮事件
+                // "从错误处播放"按钮事件 - 紫色系
                 const errorPlayBtn = sentenceCard.querySelector('.play-error-button');
                 errorPlayBtn.addEventListener('click', function() {
                     const idx = parseInt(this.getAttribute('data-index'));
