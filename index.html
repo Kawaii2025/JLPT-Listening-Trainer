@@ -151,7 +151,7 @@
 
         <!-- 结果显示区域 -->
         <section id="results-section" class="max-w-4xl mx-auto hidden">
-            <div class="flex justify-between items-center mb-6">
+            <div id="practice-content" class="flex justify-between items-center mb-6">
                 <h3 class="text-xl font-semibold flex items-center">
                     <i class="fa fa-list-alt text-primary mr-2"></i>练习内容
                 </h3>
@@ -987,8 +987,18 @@
                 // 渲染句子卡片
                 renderAllSentenceCards();
                 
-                // 滚动到结果区域
-                resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // 滚动到练习内容的顶部，考虑导航栏高度
+                const practiceContentAnchor = document.getElementById('practice-content');
+                if (practiceContentAnchor) {
+                    const navbar = document.getElementById('navbar');
+                    const navbarHeight = navbar ? navbar.offsetHeight : 0;
+                    const elementTop = practiceContentAnchor.getBoundingClientRect().top + window.scrollY;
+                    // 减去导航栏高度加一些额外的间距
+                    window.scrollTo({
+                        top: elementTop - navbarHeight - 20,
+                        behavior: 'smooth'
+                    });
+                }
                 
                 showNotification(`已成功处理 ${sentenceData.length} 句日语`, 'success');
             } catch (error) {
@@ -1073,6 +1083,13 @@
 男：ああ、それは2年生に印刷してもらおうと思ってるんだ。僕から頼んでおくよ。
 女：わかりました。
 女の学生はこの後何をしなければなりませんか。`;
+        
+        // 页面加载完成后自动处理文本
+        setTimeout(() => {
+            processText();
+            // // 页面加载完成后自动回到顶部
+            // window.scrollTo(0, 0);
+        }, 500);
     </script>
 </body>
 </html>
