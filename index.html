@@ -120,17 +120,16 @@
             <div class="space-y-6">
                 <!-- 混合输入区域 -->
                 <div>
-                    <label for="mixed-text" class="block text-sm font-medium text-neutral-700 mb-2">日语和对应的中文翻译（交替输入）</label>
+                    <label for="mixed-text" class="block text-sm font-medium text-neutral-700 mb-2">输入日语文本</label>
                     <textarea 
                         id="mixed-text" 
                         rows="10" 
                         class="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-none text-lg"
-                        placeholder="请交替输入日语和中文，例如：
+                        placeholder="请输入日语文本，例如：
 電話で女の学生と男の学生が話しています。男の学生は明日何をしなければなりませんか。
-在电话里女学生和男学生正在交谈。男学生明天必须做什么？
 女：もしもし、伊藤君、私田中だけど。明日のサークルのミーティングが急用で出られなくなっちゃったから代わりに仕切ってくれない？
-女：喂，伊藤君，我是田中。明天社团的会议因为有急事我去不了了，你能代替我主持吗？"></textarea>
-                    <p class="mt-1 text-sm text-neutral-500"><i class="fa fa-info-circle mr-1"></i> 请按照"日语→中文→日语→中文"的顺序交替输入，系统会按句号自动断句，并识别性别标识</p>
+男：はい、わかりました。何か特別に準備することはありますか？"></textarea>
+                    <p class="mt-1 text-sm text-neutral-500"><i class="fa fa-info-circle mr-1"></i> 系统会按句号自动断句，并识别性别标识（如"女："、"男："）</p>
                 </div>
                 
                 <div class="flex flex-col sm:flex-row gap-4 justify-end pt-4">
@@ -924,50 +923,29 @@
                     return;
                 }
                 
-                // 检查行数是否为偶数
-                if (lines.length % 2 !== 0) {
-                    showNotification('文本行数必须为偶数，请确保日语和中文成对输入', 'error');
-                    return;
-                }
-                
-                // 分离日语和中文句子
+                // 只处理日语句子
                 sentenceData = [];
                 chineseSentences = [];
                 
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i];
+                for (const line of lines) {
                     const sentences = splitByPeriod(line);
                     
-                    if (i % 2 === 0) {
-                        // 处理日语句子
-                        sentences.forEach(sentence => {
-                            if (sentence.trim() !== '') {
-                                const { text: processedText, gender } = extractAndRemoveGenderPrefix(sentence);
-                                sentenceData.push({
-                                    text: processedText,
-                                    gender: gender,
-                                    errors: [], // 存储错误位置
-                                    lastErrorRange: { start: 0, end: 0 }, // 存储上次错误范围
-                                    lastErrorToParticleRange: { start: 0, end: 0 }, // 存储上次到助词的错误范围
-                                    shortPlayRange: { start: 0, end: 0 } // 存储短播放范围
-                                });
-                            }
-                        });
-                    } else {
-                        // 处理中文句子
-                        sentences.forEach(sentence => {
-                            if (sentence.trim() !== '') {
-                                const { text: processedText } = extractAndRemoveGenderPrefix(sentence);
-                                chineseSentences.push(processedText);
-                            }
-                        });
-                    }
-                }
-                
-                // 验证句子数量是否一致
-                if (sentenceData.length !== chineseSentences.length) {
-                    showNotification(`日语句子数量（${sentenceData.length}）与中文句子数量（${chineseSentences.length}）不一致，请检查输入`, 'error');
-                    return;
+                    // 处理日语句子
+                    sentences.forEach(sentence => {
+                        if (sentence.trim() !== '') {
+                            const { text: processedText, gender } = extractAndRemoveGenderPrefix(sentence);
+                            sentenceData.push({
+                                text: processedText,
+                                gender: gender,
+                                errors: [], // 存储错误位置
+                                lastErrorRange: { start: 0, end: 0 }, // 存储上次错误范围
+                                lastErrorToParticleRange: { start: 0, end: 0 }, // 存储上次到助词的错误范围
+                                shortPlayRange: { start: 0, end: 0 } // 存储短播放范围
+                            });
+                            // 为每个日语句子添加一个空的中文翻译占位
+                            chineseSentences.push('');
+                        }
+                    });
                 }
                 
                 // 显示结果区域
@@ -983,7 +961,7 @@
                 // 滚动到结果区域
                 resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 
-                showNotification(`已成功处理 ${sentenceData.length} 组句子`, 'success');
+                showNotification(`已成功处理 ${sentenceData.length} 句日语`, 'success');
             } catch (error) {
                 console.error('处理文本时出错:', error);
                 showNotification('处理文本时发生错误，请检查输入格式', 'error');
@@ -1054,13 +1032,9 @@
 
         // 预填充示例文本
         mixedTextarea.value = `電話で女の学生と男の学生が話しています。男の学生は明日何をしなければなりませんか。
-在电话里女学生和男学生正在交谈。男学生明天必须做什么？
 女：もしもし、伊藤君、私田中だけど。明日のサークルのミーティングが急用で出られなくなっちゃったから代わりに仕切ってくれない？
-女：喂，伊藤君，我是田中。明天社团的会议因为有急事我去不了了，你能代替我主持吗？
 男：はい、わかりました。何か特別に準備することはありますか？
-男：好的，我知道了。有什么需要特别准备的吗？
-女：資料は事前にメールで送っておきますから、それを印刷して持ってきてくれると助かります。
-女：资料我会提前用邮件发过去，如果你能打印出来带过去就太好了。`;
+女：資料は事前にメールで送っておきますから、それを印刷して持ってきてくれると助かります。`;
     </script>
 </body>
 </html>
