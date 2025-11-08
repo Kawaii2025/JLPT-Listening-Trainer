@@ -367,11 +367,22 @@
             return japaneseRegex.test(text);
         }
 
-        // 按行分割句子
+        // 按句号分割句子（。！？）并保留标点符号，也在性别标识处分割
         function splitByPeriod(text) {
-            return text.split('\n')
-                .map(line => line.trim())
-                .filter(line => line !== '');
+            // 先去掉换行符（换行符之间没有真实的空格）
+            const cleanedText = text.replace(/\n+/g, '').trim();
+            
+            // 先按句号、感叹号、问号分割，但保留标点符号
+            let sentences = cleanedText.split(/(?<=[。！？])/);
+            
+            // 再按性别标识分割（女: 、男: 、女： 、男：）
+            sentences = sentences.flatMap(sentence => {
+                return sentence.split(/(?=[女男男女][：:])/);
+            });
+            
+            return sentences
+                .map(s => s.trim())
+                .filter(s => s !== '');
         }
 
         // 提取并去除开头的性别标识
@@ -586,6 +597,15 @@
                 utterance.lang = 'ja-JP';
                 utterance.rate = 0.9; // 稍慢的语速，适合学习
                 
+                // 根据性别调整音调和音量
+                if (gender === 'male') {
+                    utterance.pitch = 0.8; // 降低音调以显得更低沉（男性）
+                    utterance.volume = 1.0;
+                } else if (gender === 'female') {
+                    utterance.pitch = 1.2; // 提高音调以显得更尖锐（女性）
+                    utterance.volume = 1.0;
+                }
+                
                 // 尝试找到合适的语音
                 const voices = window.speechSynthesis.getVoices();
                 let selectedVoice = null;
@@ -600,12 +620,14 @@
                     if (gender === 'male') {
                         selectedVoice = japaneseVoices.find(voice => 
                             voice.name.toLowerCase().includes('male') || 
-                            voice.name.toLowerCase().includes('man')
+                            voice.name.toLowerCase().includes('man') ||
+                            (voice.name.includes('Google') && !voice.name.includes('female'))
                         );
                     } else if (gender === 'female') {
                         selectedVoice = japaneseVoices.find(voice => 
                             voice.name.toLowerCase().includes('female') || 
-                            voice.name.toLowerCase().includes('woman')
+                            voice.name.toLowerCase().includes('woman') ||
+                            voice.name.includes('female')
                         );
                     }
                     
@@ -913,12 +935,8 @@
                     return;
                 }
                 
-                // 按行分割文本
-                const lines = mixedText.split('\n')
-                    .map(line => line.trim())
-                    .filter(line => line !== '');
-                
-                if (lines.length === 0) {
+                // 验证输入不为空
+                if (mixedText.length === 0) {
                     showNotification('未检测到有效内容', 'warning');
                     return;
                 }
@@ -927,25 +945,36 @@
                 sentenceData = [];
                 chineseSentences = [];
                 
-                for (const line of lines) {
-                    const sentences = splitByPeriod(line);
-                    
-                    // 处理日语句子
-                    sentences.forEach(sentence => {
-                        if (sentence.trim() !== '') {
-                            const { text: processedText, gender } = extractAndRemoveGenderPrefix(sentence);
-                            sentenceData.push({
-                                text: processedText,
-                                gender: gender,
-                                errors: [], // 存储错误位置
-                                lastErrorRange: { start: 0, end: 0 }, // 存储上次错误范围
-                                lastErrorToParticleRange: { start: 0, end: 0 }, // 存储上次到助词的错误范围
-                                shortPlayRange: { start: 0, end: 0 } // 存储短播放范围
-                            });
-                            // 为每个日语句子添加一个空的中文翻译占位
-                            chineseSentences.push('');
+                // 直接按句号分割所有文本
+                const sentences = splitByPeriod(mixedText);
+                
+                sentences.forEach(sentence => {
+                    if (sentence.trim() !== '') {
+                        const { text: processedText, gender } = extractAndRemoveGenderPrefix(sentence);
+                        sentenceData.push({
+                            text: processedText,
+                            gender: gender,
+                            errors: [], // 存储错误位置
+                            lastErrorRange: { start: 0, end: 0 }, // 存储上次错误范围
+                            lastErrorToParticleRange: { start: 0, end: 0 }, // 存储上次到助词的错误范围
+                            shortPlayRange: { start: 0, end: 0 } // 存储短播放范围
+                        });
+                        // 为每个日语句子添加一个空的中文翻译占位
+                        chineseSentences.push('');
+                    }
+                });
+                
+                // 优化：无性别的句子继承前一个句子的性别
+                for (let i = 0; i < sentenceData.length; i++) {
+                    if (!sentenceData[i].gender && i > 0) {
+                        // 向前查找最近的有性别的句子
+                        for (let j = i - 1; j >= 0; j--) {
+                            if (sentenceData[j].gender) {
+                                sentenceData[i].gender = sentenceData[j].gender;
+                                break;
+                            }
                         }
-                    });
+                    }
                 }
                 
                 // 显示结果区域
@@ -1031,10 +1060,19 @@
         };
 
         // 预填充示例文本
-        mixedTextarea.value = `電話で女の学生と男の学生が話しています。男の学生は明日何をしなければなりませんか。
-女：もしもし、伊藤君、私田中だけど。明日のサークルのミーティングが急用で出られなくなっちゃったから代わりに仕切ってくれない？
-男：はい、わかりました。何か特別に準備することはありますか？
-女：資料は事前にメールで送っておきますから、それを印刷して持ってきてくれると助かります。`;
+        mixedTextarea.value = `大学の演劇サ一クルで女の学生と部長の男の学生が話しています。女の学生はこの後何
+をしなければなりませんか。
+女:鈴木さん。来週の新入生勧誘のためのサ一クル体験会、ポスタ一を見た人から早速
+参加の申し込みが来てますね。
+男:うん、準備進めないとね。当日来てくれた人には演劇を一部実際に体験してもらう
+よね？その時に使うシ一ン、台本から候補選ぶのお願いしてたけど、どう?
+女:はい。体験者が多くても使えそうなシンを3つピックアップしました。
+男:じゃ、その中から僕が選んでセリフを印刷しておくよ。あと当日は受付とか誘導と
+かみんなにも手伝ってもらうから誰が何を担当するか割り振ってほしいんだ。
+女:わかりました。えっと、当日配る入部案内のチラシの準備は?
+男：ああ、それは2年生に印刷してもらおうと思ってるんだ。僕から頼んでおくよ。
+女：わかりました。
+女の学生はこの後何をしなければなりませんか。`;
     </script>
 </body>
 </html>

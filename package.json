@@ -1,0 +1,16 @@
+{
+  "name": "jlpt-listening-training-app",
+  "version": "1.0.0",
+  "description": "JLPT Listening Training Application",
+  "main": "index.html",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "keywords": ["JLPT", "listening", "japanese"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
